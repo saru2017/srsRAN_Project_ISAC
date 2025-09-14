@@ -52,10 +52,18 @@ static bool port_init(const dpdk_port_config& config, ::rte_mempool* mem_pool, u
     return false;
   }
 
-  ::rte_eth_conf port_conf = {};
+  // begin modified by saru
+//  ::rte_eth_conf port_conf = {};
+  ::rte_eth_conf port_conf = {0};
+
+  // end modified by saru
   if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
     port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
   }
+
+  // begin added by saru
+  port_conf.link_speeds = RTE_ETH_LINK_SPEED_10G | RTE_ETH_LINK_SPEED_FIXED; 
+  // end added by saru
 
   // Configure the Ethernet device.
   if (::rte_eth_dev_configure(port_id, 1, 1, &port_conf) != 0) {
@@ -105,6 +113,66 @@ static bool port_init(const dpdk_port_config& config, ::rte_mempool* mem_pool, u
       return false;
     }
   }
+
+  //start added by saru
+  sleep(1);
+  if (::rte_eth_dev_stop(port_id) < 0) {
+    fmt::print("DPDK - Error starting Ethernet device\n");
+    return false;
+  }
+  sleep(1);
+  port_conf = {0};
+
+  // end modified by saru
+  if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE) {
+    port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
+  }
+
+  // begin added by saru
+  port_conf.link_speeds = RTE_ETH_LINK_SPEED_10G | RTE_ETH_LINK_SPEED_FIXED;
+  // end added by saru
+
+  // Configure the Ethernet device.
+  if (::rte_eth_dev_configure(port_id, 1, 1, &port_conf) != 0) {
+    fmt::print("DPDK - Error configuring Ethernet device\n");
+    return false;
+  }
+
+  // Configure MTU size.
+  if (::rte_eth_dev_set_mtu(port_id, config.mtu_size.value()) != 0) {
+    uint16_t current_mtu;
+    ::rte_eth_dev_get_mtu(port_id, &current_mtu);
+    fmt::print("DPDK - Unable to configure MTU size to '{}' bytes, current MTU size is '{}' bytes\n",
+               config.mtu_size,
+               current_mtu);
+    return false;
+  }
+
+  if (::rte_eth_dev_adjust_nb_rx_tx_desc(port_id, &nb_rxd, &nb_txd) != 0) {
+    fmt::print("DPDK - Error configuring Ethernet device number of tx/rx descriptors\n");
+    return false;
+  }
+
+  // Allocate and set up 1 RX queue.
+  if (::rte_eth_rx_queue_setup(port_id, 0, nb_rxd, ::rte_eth_dev_socket_id(port_id), nullptr, mem_pool) < 0) {
+    fmt::print("DPDK - Error configuring Rx queue\n");
+    return false;
+  }
+
+  txconf = dev_info.default_txconf;
+  txconf.offloads         = port_conf.txmode.offloads;
+  // Allocate and set up 1 TX queue.
+  if (::rte_eth_tx_queue_setup(port_id, 0, nb_txd, ::rte_eth_dev_socket_id(port_id), &txconf) < 0) {
+    fmt::print("DPDK - Error configuring Tx queue\n");
+    return false;
+  }
+
+  // Start Ethernet port.
+  if (::rte_eth_dev_start(port_id) < 0) {
+    fmt::print("DPDK - Error starting Ethernet device\n");
+    return false;
+  }
+  //end added by saru
 
   return true;
 }
