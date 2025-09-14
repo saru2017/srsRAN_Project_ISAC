@@ -24,6 +24,7 @@
 #include <charconv>
 #include <optional>
 #include <rte_ethdev.h>
+#include <unistd.h>
 
 using namespace srsran;
 using namespace ether;
