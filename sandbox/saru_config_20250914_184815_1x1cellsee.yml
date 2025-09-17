@@ -1,0 +1,88 @@
+cu_cp:
+  amf:
+    addr: 192.168.70.132
+    bind_addr: 192.168.70.129
+    supported_tracking_areas:
+      - tac: 1
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+                #                sd: 162
+                #  mobility:
+                #    cells:
+                #      - nr_cell_id: 0x66C000          # For the default gnb_id=411 (gnb_id_bit_length=22), NR cell IDs start with 0x66C000 and increment for each cell of the DU.
+                #        periodic_report_cfg_id: 1     # This will configure a periodical report config for the serving cell.
+                #    report_configs:                                        # Define report configs for cell 1
+                #      - report_cfg_id: 1
+                #        report_type: periodical
+                #        report_interval_ms: 1024
+
+cell_cfg:
+  dl_arfcn: 650000
+  common_scs: 30
+  band: 78
+  plmn: "00101"
+  tac: 1
+  channel_bandwidth_MHz: 20
+  ssb:
+     ssb_block_power_dbm: -10
+  nof_antennas_dl: 1
+  nof_antennas_ul: 1
+  tdd_ul_dl_cfg:
+    dl_ul_tx_period: 10
+    nof_dl_slots: 7
+    nof_dl_symbols: 6
+    nof_ul_slots: 2
+    nof_ul_symbols: 4
+  prach:
+    prach_config_index: 159
+    prach_root_sequence_index: 1
+    zero_correlation_zone: 0
+    prach_frequency_start: 12
+  pdsch:
+    mcs_table: qam256
+
+ru_ofh:
+  ru_bandwidth_MHz: 20
+  t1a_min_cp_dl: 258
+  t1a_max_cp_dl: 470
+  t1a_min_cp_ul: 285
+  t1a_max_cp_ul: 550
+  t1a_min_up: 50
+  t1a_max_up: 196
+  ta4_min: 0
+  ta4_max: 75
+  is_prach_cp_enabled: true
+    #  is_dl_broadcast_enabled: 0
+  ignore_ecpri_payload_size: true
+  compr_method_ul: bfp
+  compr_bitwidth_ul: 9
+  compr_method_dl: bfp
+  compr_bitwidth_dl: 9
+  compr_method_prach: none
+  compr_bitwidth_prach: 16
+  enable_ul_static_compr_hdr: false
+  enable_dl_static_compr_hdr: false
+  iq_scaling: 1.0
+  cells:
+  - network_interface: "0000:01:00.0"    # PCI address of the NIC card in your server
+    ru_mac_addr: 6c:ad:ad:00:0d:66
+    du_mac_addr: 50:7c:6f:02:00:e2
+    vlan_tag_up: 2
+    vlan_tag_cp: 2
+    prach_port_id: [1]
+      #    prach_port_id: [8, 9, 10, 11]
+    dl_port_id: [0]
+    ul_port_id: [0]
+
+hal:
+  eal_args: "--lcores 0@0,1@1,2@2,3@3 -a 0000:01:00.0 --socket-mem=4096 --file-prefix=gnb --huge-dir=/mnt/huge"
+
+log:
+  filename: ./gnb.log
+  ofh_level: warning
+  all_level: warning
+  gtpu_level: warning
+  mac_level: info
+    #broadcast_enabled: true
