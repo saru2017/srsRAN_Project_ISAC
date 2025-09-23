@@ -1,0 +1,1 @@
+OPTIONS="-s enp6s0f0np0 -c CLOCK_REALTIME -O 0 -m -z /var/run/ptp4l"
