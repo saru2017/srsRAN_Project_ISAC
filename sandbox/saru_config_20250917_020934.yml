@@ -1,9 +1,9 @@
 ---
 expert_execution:
   affinities:
-    main_pool_cpus: 2,3,4,5,6,7
+    main_pool_cpus: 2,3,4,5,6
     main_pool_pinning: round-robin
-    #    ru_timing_cpu: "10"
+    ru_timing_cpu: "7"
     #    ofh:
     #      - ru_txrx_cpus: "11"
     #  threads:
@@ -84,7 +84,7 @@ hal:
   eal_args: --lcores 0@8,1@9,2@10,3@11 --main-lcore 0 -a 0000:01:00.0 --socket-mem=4096 --file-prefix=gnb --huge-dir=/mnt/huge
 log:
   filename: ./gnb.log
-  ofh_level: warning
+  ofh_level: info
   all_level: warning
   gtpu_level: warning
   mac_level: warning
