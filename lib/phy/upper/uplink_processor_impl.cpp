@@ -416,6 +416,84 @@ void uplink_processor_impl::process_pucch_f1(const uplink_pdu_slot_repository_im
   }
 }
 
+//start added by saru
+static void saru_dump_ul_srs_results_json(const ul_srs_results& result)
+{
+    const auto& ctx = result.context;
+    const auto& est = result.processor_result;
+
+    // コンテキスト（slot, rnti, flags）
+    printf("{\"context\":{");
+    printf("\"sfn\":%u,", ctx.slot.sfn());                  // slot_point::sfn()  :contentReference[oaicite:2]{index=2}
+    printf("\"slot_index\":%u,", ctx.slot.slot_index());    // slot_point::slot_index()  :contentReference[oaicite:3]{index=3}
+    printf("\"rnti\":%u,", static_cast<unsigned>(ctx.rnti));
+    printf("\"normalized_iq_requested\":%s,", ctx.is_normalized_channel_iq_matrix_report_requested ? "true":"false");
+    printf("\"positioning_requested\":%s", ctx.is_positioning_report_requested ? "true":"false");
+    printf("},");
+
+    // 推定結果のスカラ（optional は null を出す）
+    printf("\"estimator\":{");
+
+    // epre_dB
+    if (est.epre_dB.has_value()) {
+        printf("\"epre_dB\":%.6g,", static_cast<double>(*est.epre_dB));
+    } else {
+        printf("\"epre_dB\":null,");
+    }
+    // rsrp_dB
+    if (est.rsrp_dB.has_value()) {
+        printf("\"rsrp_dB\":%.6g,", static_cast<double>(*est.rsrp_dB));
+    } else {
+        printf("\"rsrp_dB\":null,");
+    }
+    // noise_variance
+    if (est.noise_variance.has_value()) {
+        printf("\"noise_variance\":%.6g,", static_cast<double>(*est.noise_variance));
+    } else {
+        printf("\"noise_variance\":null,");
+    }
+
+    // time_alignment は詳細不明のため null
+    printf("\"time_alignment\":null,");
+
+    // チャネル行列（rx×tx の複素係数）
+    const auto& H  = est.channel_matrix;                    // srs_channel_matrix
+    unsigned nrx   = H.get_nof_rx_ports();                  // :contentReference[oaicite:4]{index=4}
+    unsigned ntx   = H.get_nof_tx_ports();                  // :contentReference[oaicite:5]{index=5}
+
+    // 参考: Frobenius ノルム（品質指標的に見るなら二乗も）
+    // （SNRライクな定性的指標としてノルム二乗を出すのもアリ）
+    double frob = static_cast<double>(H.frobenius_norm());  // :contentReference[oaicite:6]{index=6}
+    printf("\"frobenius_norm\":%.6g,", frob);
+    printf("\"frobenius_norm_sq\":%.6g,", frob * frob);
+
+    // メタ情報
+    printf("\"matrix\":{");
+    printf("\"rx_ports\":%u,", nrx);
+    printf("\"tx_ports\":%u,", ntx);
+
+    // 係数本体: coeff[rx][tx] = {re, im}
+    printf("\"coeff\":[");
+    for (unsigned rx = 0; rx < nrx; ++rx) {
+        if (rx) printf(",");
+        printf("[");
+        for (unsigned tx = 0; tx < ntx; ++tx) {
+            if (tx) printf(",");
+            auto h = H.get_coefficient(rx, tx);             // cf_t 取得  :contentReference[oaicite:7]{index=7}
+            // JSON オブジェクトとして re/​im を出力
+            printf("{\"re\":%.6g,\"im\":%.6g}",
+                   static_cast<double>(h.real()),
+                   static_cast<double>(h.imag()));
+        }
+        printf("]");
+    }
+    printf("]}"); // matrix
+    printf("}");  // estimator
+    printf("}\n");
+}
+//end added by saru
+
+
 void uplink_processor_impl::process_srs(const uplink_pdu_slot_repository::srs_pdu& pdu)
 {
   // Notify the creation of the execution task.
@@ -429,6 +507,8 @@ void uplink_processor_impl::process_srs(const uplink_pdu_slot_repository::srs_pd
     ul_srs_results result;
     result.context          = pdu.context;
     result.processor_result = srs->estimate(grid->get_reader(), pdu.config);
+    saru_dump_ul_srs_results_json(result);
+    
 
     l1_ul_tracer << trace_event("process_srs", tp);
 

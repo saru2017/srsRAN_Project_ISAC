@@ -76,6 +76,21 @@ void srs_estimator_generic_impl::compensate_phase_shift(span<cf_t> mean_lse,
   srsvec::prod(mean_lse, cexp, mean_lse);
 }
 
+//start added by saru
+static inline void saru_dump_sc_array(const char* key, span<cf_t> v) {
+  std::printf("\"%s\":[", key);
+  for (unsigned i = 0; i < v.size(); ++i) {
+    if (i) std::printf(",");
+    const auto c = v[i];
+    std::printf("{\"re\":%.9g,\"im\":%.9g}", (double)std::real(c), (double)std::imag(c));
+  }
+  std::printf("]");
+}
+
+
+
+//end added by saru
+
 srs_estimator_result srs_estimator_generic_impl::estimate(const resource_grid_reader&        grid,
                                                           const srs_estimator_configuration& config)
 {
@@ -186,6 +201,29 @@ srs_estimator_result srs_estimator_generic_impl::estimate(const resource_grid_re
       if (nof_symbols > 1) {
         srsvec::sc_prod(mean_lse, mean_lse, 1.0 / static_cast<float>(nof_symbols));
       }
+
+//start added by saru
+{
+  // SRSが乗っているサブキャリア列の情報
+  const unsigned k0   = (unsigned)info.mapping_initial_subcarrier; // そのRBグリッド上での開始SC
+  const unsigned step = (unsigned)info.comb_size;                   // combサイズ（2 or 4 など）
+
+  // 1行1JSONオブジェクト（最小情報：開始k/ステップ/係数列）
+  // k[i] = k0 + i*step でサブキャリア絶対インデックスが復元できる
+  std::printf("{\"type\":\"srs_sc\"");
+  std::printf(",\"sfn\":%u",           config.slot.sfn());
+  std::printf(",\"slot\":%u",          config.slot.slot_index());
+//  std::printf(",\"rnti\":%u",          (unsigned)context.rnti);         // contextが見えるなら
+  std::printf(",\"tx_port\":%u",       i_antenna_port);
+  std::printf(",\"rx_port_idx\":%u",   i_rx_port_index);                // 0..(Nrx-1)
+  std::printf(",\"rx_port_id\":%u",    i_rx_port);                      // 実ポートIDが別にあるなら
+  std::printf(",\"k0\":%u",            k0);
+  std::printf(",\"step\":%u",          step);
+  std::printf(",\"len\":%u,",          (unsigned)mean_lse.size());
+  saru_dump_sc_array("coeff", mean_lse);    // [{re,im}, ...]（サブキャリア毎）
+  std::printf("}\n");
+}
+//end added by saru
 
       port_lse.set_slice(i_rx_port_index, mean_lse);
     }
