@@ -1,0 +1,136 @@
+# This example configuration outlines how to configure the srsRAN Project CU/DU to use an O-RU and split 7.2. This is specifically for use
+# with the Foxconn RPQN O-RU. This config will create a single TDD cell transmitting in band n78, with 20 MHz bandwidth and 30 kHz sub-carrier-spacing.
+# The parameters used to configure the RU are found in the `ru_ofh` sub-section. This configuration makes used of the OFH Lib from SRS to enable split 7.2.
+cu_cp:
+  amf:
+    #    addr: 127.0.1.100
+    addr: 192.168.70.132
+    port: 38412
+    bind_addr: 192.168.2.3
+    supported_tracking_areas:
+      - tac: 1
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+hal:
+  eal_args: "--lcores (0-1)@(6-23) -a 0000:b5:00.1"
+
+ru_ofh:
+  #  t1a_max_cp_dl: 420
+  #  t1a_min_cp_dl: 250
+  #  t1a_max_cp_ul: 420
+  #  t1a_min_cp_ul: 250
+  #  t1a_max_up: 196
+  #  t1a_min_up: 80
+  #  ta4_max: 500
+  #  ta4_min: 25
+  #t1a_max_cp_dl: 470
+    #t1a_min_cp_dl: 258
+    #t1a_max_cp_ul: 429
+    #t1a_min_cp_ul: 285
+    #t1a_max_up: 196
+    #t1a_min_up: 50
+    #ta4_max: 75
+    #ta4_min: 0
+    #
+  t1a_max_cp_dl: 500
+  t1a_min_cp_dl: 351
+  t1a_max_cp_ul: 500
+  t1a_min_cp_ul: 351
+  t1a_max_up: 316
+  t1a_min_up: 101
+  ta4_max: 80
+  ta4_min: 50
+  is_prach_cp_enabled: true
+  ignore_ecpri_payload_size: true
+  compr_method_ul: bfp
+  compr_bitwidth_ul: 9
+  compr_method_dl: bfp
+  compr_bitwidth_dl: 9
+  compr_method_prach: bfp
+  compr_bitwidth_prach: 9
+  enable_ul_static_compr_hdr: false
+  enable_dl_static_compr_hdr: false
+  iq_scaling: 1.0
+  cells:
+    - network_interface: 0000:b5:00.1
+      ru_mac_addr: 6c:ad:ad:00:0d:62
+      #ru_mac_addr: 6c:ad:ad:00:0d:66
+      du_mac_addr: b8:ce:f6:d3:33:1f
+      vlan_tag_cp: 3
+      vlan_tag_up: 2
+      prach_port_id: [4, 5, 6, 7]
+      dl_port_id: [0, 1, 2, 3]
+      ul_port_id: [0, 1, 2, 3]
+        #prach_port_id: [2, 3]
+        #dl_port_id: [0, 1]
+        #ul_port_id: [0, 1]
+
+cell_cfg:
+  #  dl_arfcn: 640000
+  dl_arfcn: 650000
+  band: 78
+  channel_bandwidth_MHz: 100
+  common_scs: 30
+  plmn: "00101"
+  tac: 1
+  pci: 1
+  nof_antennas_dl: 4
+  nof_antennas_ul: 4
+    #  tdd_ul_dl_cfg:
+    #    dl_ul_tx_period: 5
+      #    nof_dl_slots: 3
+      #    nof_dl_symbols: 6
+      #    nof_ul_slots: 1
+      #  nof_ul_symbols: 4
+  prach:
+    prach_config_index: 159
+    prach_root_sequence_index: 1
+    zero_correlation_zone: 0
+    prach_frequency_start: 12
+    #zero_correlation_zone: 12 # OAI
+    #prach_frequency_start: 0 # OAI
+    #prach_frequency_start: 2  # Offset in PRBs of lowest PRACH transmission occasion in frequency domain respective to PRB 0.
+    #preamble_trans_max: 6
+      #power_ramping_step_db: 2
+  pdsch:
+    mcs_table: qam256
+  pusch:
+    mcs_table: qam256
+  ssb:
+    ssb_period: 20
+      #ssb_block_power_dbm: -10
+      #  tdd_ul_dl_cfg:
+      #dl_ul_tx_period: 5                      # Optional INT (10). Sets the TDD pattern periodicity in slots. The combination of this value and the chosen numerology must lead to a TDD periodicity of 0.5, 0.625, 1, 1.25, 2, 2.5, 3, 4, 5 or 10 milliseconds. Supported: [2 - 80].
+      #nof_dl_slots: 3                         # Optional INT (6). Number of consecutive full Downlink slots. Supported: [0-80].
+      #nof_dl_symbols: 6                       # Optional INT (8). Number of Downlink symbols at the beginning of the slot following full Downlink slots. Supported: [0-13].
+      #nof_ul_slots: 1                         # Optional INT (3). Number of consecutive full Uplink slots. Supported: [0 - 80].
+      #nof_ul_symbols: 4                       # Optional INT (0). Number of Uplink symbols at the end of the slot preceding the first full Uplink slot. Supported: [0-13].
+      #pattern2:
+      #dl_ul_tx_period: 5                    # Optional INT (10). Sets the TDD pattern periodicity in slots. The combination of this value and the chosen numerology must lead to a TDD periodicity of 0.5, 0.625, 1, 1.25, 2, 2.5, 3, 4, 5 or 10 milliseconds. Supported: [2 - 80].
+      #nof_dl_slots: 3                       # Optional INT (6). Number of consecutive full Downlink slots. Supported: [0-80].
+      #nof_dl_symbols: 6                     # Optional INT (8). Number of Downlink symbols at the beginning of the slot following full Downlink slots. Supported: [0-13]
+      #nof_ul_slots: 1                       # Optional INT (3). Number of consecutive full Uplink slots. Supported: [0 - 80].
+      #nof_ul_symbols: 4   
+      # pusch:
+    #    p0_nominal_with_grant: -76
+  srs:
+        srs_period_ms: 20            # SCS=30kHzなら 1,2,2.5,4,5,8,10,16,20,… から選択
+        srs_max_nof_sym_per_slot: 2  # ULスロット内でSRSに確保する最大シンボル数 [1..6]
+        srs_nof_sym_per_resource: 1  # 1|2|4（一般的には1から）
+        srs_tx_comb: 4               # 2 or 4（4が一般的）
+        srs_cyclic_shift_reuse: 1    # 1|2|3|4|6（TX comb/ULアンテナ数と整合させる）
+        srs_sequence_id_reuse: 1     # 1|2|3|5|6|10|15|30
+
+
+log:
+  filename: /tmp/gnb.log
+  #filename: /home/amamaghani/srsRAN_Project/build/apps/gnb/gnb.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  mac_filename: /tmp/gnb_mac.pcap
+  ngap_enable: false
+  ngap_filename: /tmp/gnb_ngap.pcap
