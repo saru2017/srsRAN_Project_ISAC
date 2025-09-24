@@ -419,6 +419,7 @@ void uplink_processor_impl::process_pucch_f1(const uplink_pdu_slot_repository_im
 //start added by saru
 static void saru_dump_ul_srs_results_json(const ul_srs_results& result)
 {
+    return;
     const auto& ctx = result.context;
     const auto& est = result.processor_result;
 
@@ -508,7 +509,6 @@ void uplink_processor_impl::process_srs(const uplink_pdu_slot_repository::srs_pd
     result.context          = pdu.context;
     result.processor_result = srs->estimate(grid->get_reader(), pdu.config);
     saru_dump_ul_srs_results_json(result);
-    
 
     l1_ul_tracer << trace_event("process_srs", tp);
 

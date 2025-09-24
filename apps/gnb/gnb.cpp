@@ -73,6 +73,12 @@
 // This include is not unused - it helps prevent false alarms from the thread sanitizer.
 #include "srsran/support/tsan_options.h"
 
+//start added by saru
+#include "saru/zmq_pub.h"
+void* g_zmq_ctx  = nullptr;
+void* g_zmq_pub  = nullptr;
+//end added by saru
+
 using namespace srsran;
 
 /// \file
@@ -269,6 +275,7 @@ int main(int argc, char** argv)
     autoderive_cu_up_parameters_after_parsing(o_cu_up_app_unit->get_o_cu_up_unit_config().cu_up_cfg, cu_cp_cfg);
   });
 
+
   // Parse arguments.
   CLI11_PARSE(app, argc, argv);
 
@@ -306,6 +313,11 @@ int main(int argc, char** argv)
     fmt::println("Logger or JSON metrics output enabled but no metrics will be reported as no layer was enabled");
   }
 
+  //start added by saru
+  zmq_pub_init("tcp://*:5556");
+  gnb_logger.warning("ZeroMQ PUB socket bound at tcp://*:5556");
+  //end added by saru
+ 
   // Log input configuration.
   srslog::basic_logger& config_logger = srslog::fetch_basic_logger("CONFIG");
   if (config_logger.debug.enabled()) {
@@ -549,6 +561,11 @@ int main(int argc, char** argv)
   if (remote_control_server) {
     remote_control_server->stop();
   }
+
+  //start added by saru
+  zmq_pub_close();
+  gnb_logger.warning("ZeroMQ PUB closed");
+  //end added by saru
 
   // Stop DU activity.
   du_inst.get_operation_controller().stop();

@@ -199,22 +199,39 @@ srs_estimator_result srs_estimator_generic_impl::estimate(const resource_grid_re
     uint16_t slot;
     uint16_t tx_port;
     uint16_t rx_port_idx;
+    uint16_t n_rx;   // ★ここはこの関数内の nof_rx_ports を使う
+    uint16_t n_tx;   // ★ここは nof_antenna_ports を使う
     uint16_t k0;
     uint16_t step;
-    uint16_t len;
+    uint16_t len;    // サブキャリア数（mean_lse.size()）
   } __attribute__((packed)) hdr;
 
-  hdr.sfn        = config.slot.sfn();
-  hdr.slot       = config.slot.slot_index();
-  hdr.tx_port    = i_antenna_port;
-  hdr.rx_port_idx= i_rx_port_index;
-  hdr.k0         = (unsigned)info.mapping_initial_subcarrier;
-  hdr.step       = (unsigned)info.comb_size;
-  hdr.len        = mean_lse.size();
+  hdr.sfn         = config.slot.sfn();
+  hdr.slot        = config.slot.slot_index();
+  hdr.tx_port     = i_antenna_port;
+  hdr.rx_port_idx = i_rx_port_index;
 
-  zmq_send(g_zmq_pub, &hdr, sizeof(hdr), ZMQ_SNDMORE);
-  zmq_send(g_zmq_pub, mean_lse.data(),
-           mean_lse.size() * sizeof(cf_t), 0);
+  hdr.n_rx  = static_cast<uint16_t>(nof_rx_ports);        // ★ 修正
+  hdr.n_tx  = static_cast<uint16_t>(nof_antenna_ports);   // ★ 修正
+
+  hdr.k0    = static_cast<uint16_t>(info.mapping_initial_subcarrier);
+  hdr.step  = static_cast<uint16_t>(info.comb_size);
+  hdr.len   = static_cast<uint16_t>(mean_lse.size());
+
+//  printf("saru: zmq_send\n");
+
+  // ヘッダ送信
+  int rc = zmq_send(g_zmq_pub, &hdr, sizeof(hdr), ZMQ_SNDMORE);
+  if (rc < 0) {
+      printf("saru: zmq_send(hdr) failed: %s\n", strerror(errno));
+  }
+
+  // ペイロード送信（サブキャリア系列：complex<float> × len）
+  rc = zmq_send(g_zmq_pub, mean_lse.data(),
+                mean_lse.size() * sizeof(cf_t), 0);
+  if (rc < 0) {
+      printf("saru: zmq_send(payload) failed: %s\n", strerror(errno));
+  }
 }
 //end added by saru
 
