@@ -69,6 +69,9 @@ def main():
                 print(f"[WARN] Bad record at #{rec}: magic/ver mismatch (magic={magic}, ver={ver})", file=sys.stderr)
                 break
 
+            print("payload_len:", payload_len)
+
+
             try:
                 header = read_exact(f, header_len) if header_len else b""
                 payload = read_exact(f, payload_len) if payload_len else b""
