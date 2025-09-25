@@ -425,6 +425,8 @@ struct saru_srs_aux_hdr_v1 {
   uint16_t version;     // 1
   uint16_t size_bytes;  // sizeof(saru_srs_aux_hdr_v1)
 
+  uint64_t timestamp_ns; // UNIX epoch time in nanoseconds
+
   // context
   uint32_t sfn;
   uint16_t slot;
@@ -469,6 +471,10 @@ static void saru_dump_ul_srs_results_zmq(const ul_srs_results& result)
   hdr.magic       = 0x31585541u; // 'AUX1'
   hdr.version     = 1;
   hdr.size_bytes  = sizeof(hdr);
+
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  hdr.timestamp_ns = (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 
   hdr.sfn         = ctx.slot.sfn();
   hdr.slot        = static_cast<uint16_t>(ctx.slot.slot_index());

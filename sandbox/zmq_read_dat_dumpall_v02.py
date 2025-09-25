@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# zmq_read_dat_dumpall_v02.py — structured dump per user-defined headers
+# zmq_read_dat_dumpall_v02.py — structured dump following user's C++ headers
 import argparse
 import struct
 import numpy as np
@@ -11,8 +11,7 @@ FIXED_HDR_SIZE_V2 = struct.calcsize(FIXED_HDR_FMT_V2)
 FIXED_HDR_FMT_V1 = "<4sHHIIQ"
 FIXED_HDR_SIZE_V1 = struct.calcsize(FIXED_HDR_FMT_V1)
 
-# ---- Per-slice LSE header: 20 bytes ----
-# C++:
+# ---- Part0: per-slice LSE header (20 bytes) ----
 # struct sc_hdr {
 #   uint32_t sfn;
 #   uint16_t slot;
@@ -24,32 +23,15 @@ FIXED_HDR_SIZE_V1 = struct.calcsize(FIXED_HDR_FMT_V1)
 #   uint16_t step;
 #   uint16_t len;
 # } __attribute__((packed));
-#
-# => little-endian: <I8H
 SLICE_HDR_FMT = "<I8H"
 SLICE_HDR_SIZE = struct.calcsize(SLICE_HDR_FMT)
 SLICE_HDR_FIELDS = [
-    "sfn",
-    "slot",
-    "tx_port",
-    "rx_port_idx",
-    "n_rx",
-    "n_tx",
-    "k0",
-    "step",
-    "len",
+    "sfn", "slot", "tx_port", "rx_port_idx",
+    "n_rx", "n_tx", "k0", "step", "len"
 ]
 
-# ---- AUX header v1: 56 bytes ----
-# struct (little-endian) assumed from prior discussion:
-# magic 'AUX1'(u32), version(u16), size_bytes(u16),
-# sfn(u32), slot(u16), numerology(u16),
-# rnti(u16), normalized_iq_requested(u8), positioning_requested(u8),
-# epre_dB(f32), rsrp_dB(f32), noise_variance(f32),
-# frob_norm(f32), frob_norm_sq(f32),
-# n_rx(u16), n_tx(u16),
-# lse_len(u16), comb(u16), k0(u16), scs_khz(u16),
-# crc32_hdr(u32)
+# ---- Part8: AUX header v1 (56 bytes) ----
+# struct saru_srs_aux_hdr_v1 { ... } per user spec
 AUX_HDR_FMT = "<I H H I H H H B B f f f f f H H H H H H I"
 AUX_HDR_SIZE = struct.calcsize(AUX_HDR_FMT)
 AUX_HDR_FIELDS = [
@@ -60,7 +42,7 @@ AUX_HDR_FIELDS = [
     "frob_norm", "frob_norm_sq",
     "n_rx", "n_tx",
     "lse_len", "comb", "k0", "scs_khz",
-    "crc32_hdr",
+    "crc32_hdr"
 ]
 
 def iter_records(path: str) -> Iterator[Tuple[int, int, List[bytes]]]:
@@ -105,34 +87,15 @@ def iter_records(path: str) -> Iterator[Tuple[int, int, List[bytes]]]:
             else:
                 raise ValueError(f"Unknown version: {ver}")
 
-def dump_slice_header(blob: bytes, label: str) -> None:
+def dump_slice_hdr_part0(blob: bytes) -> None:
     if len(blob) != SLICE_HDR_SIZE:
-        print(f"  {label}: unexpected header size {len(blob)} (expected {SLICE_HDR_SIZE})")
+        print(f"  Part0: unexpected header size {len(blob)} (expected {SLICE_HDR_SIZE})")
         print(f"  raw-hex: {blob.hex()}")
         return
     vals = struct.unpack(SLICE_HDR_FMT, blob)
-    print(f"  {label}: per-slice LSE header ({SLICE_HDR_SIZE} bytes)")
+    print(f"  Part0: sc_hdr ({SLICE_HDR_SIZE} bytes)")
     for name, v in zip(SLICE_HDR_FIELDS, vals):
         print(f"    {name} = {v}")
-
-def dump_aux_header(blob: bytes, label: str) -> None:
-    if len(blob) != AUX_HDR_SIZE:
-        print(f"  {label}: unexpected AUX header size {len(blob)} (expected {AUX_HDR_SIZE})")
-        print(f"  raw-hex: {blob.hex()}")
-        return
-    vals = struct.unpack(AUX_HDR_FMT, blob)
-    print(f"  {label}: AUX header v1 ({AUX_HDR_SIZE} bytes)")
-    for name, v in zip(AUX_HDR_FIELDS, vals):
-        if name == "magic":
-            # show both hex and ascii attempt
-            ascii_try = bytes(struct.pack('<I', v))
-            try:
-                s = ascii_try.decode('ascii')
-            except Exception:
-                s = repr(ascii_try)
-            print(f"    {name} = 0x{v:08X} ('{s}')")
-        else:
-            print(f"    {name} = {v}")
 
 def dump_subcarriers(blob: bytes, label: str, preview_count: int = 5) -> None:
     if len(blob) % 8 != 0:
@@ -146,8 +109,52 @@ def dump_subcarriers(blob: bytes, label: str, preview_count: int = 5) -> None:
         c = arr[i]
         print(f"    sc[{i}] = {c.real:.6g}+{c.imag:.6g}j")
 
+def dump_aux_part8(blob: bytes) -> dict:
+    if len(blob) != AUX_HDR_SIZE:
+        print(f"  Part8: unexpected AUX header size {len(blob)} (expected {AUX_HDR_SIZE})")
+        print(f"  raw-hex: {blob.hex()}")
+        return {}
+    vals = struct.unpack(AUX_HDR_FMT, blob)
+    d = dict(zip(AUX_HDR_FIELDS, vals))
+    # Pretty print
+    print(f"  Part8: saru_srs_aux_hdr_v1 ({AUX_HDR_SIZE} bytes)")
+    # magic: show hex and ascii
+    magic = d["magic"]
+    ascii_try = struct.pack("<I", magic)
+    try:
+        magic_ascii = ascii_try.decode("ascii")
+    except Exception:
+        magic_ascii = repr(ascii_try)
+    print(f"    magic = 0x{magic:08X} ('{magic_ascii}')")
+    for k in AUX_HDR_FIELDS[1:]:
+        if k == "magic":
+            continue
+        print(f"    {k} = {d[k]}")
+    return d
+
+def dump_wb_part9(blob: bytes, aux_info: dict) -> None:
+    if len(blob) % 8 != 0:
+        print(f"  Part9: size {len(blob)} not multiple of 8 (complex64)")
+        print(f"  raw-hex: {blob[:64].hex()}...")
+        return
+    arr = np.frombuffer(blob, dtype=np.complex64)
+    n = len(arr)
+    n_rx = aux_info.get("n_rx")
+    n_tx = aux_info.get("n_tx")
+    if n_rx and n_tx and n_rx*n_tx == n:
+        mat = arr.reshape(n_rx, n_tx)
+        print(f"  Part9: WB matrix [{n_rx} x {n_tx}] (rx-major, then tx)")
+        for rx in range(n_rx):
+            row = " ".join(f"{mat[rx,tx].real:.6g}+{mat[rx,tx].imag:.6g}j" for tx in range(n_tx))
+            print(f"    rx{rx}: {row}")
+    else:
+        print(f"  Part9: WB flat {n} coeffs (n_rx={n_rx}, n_tx={n_tx})")
+        # print as single row to avoid huge output
+        preview = " ".join(f"{c.real:.6g}+{c.imag:.6g}j" for c in arr[:min(8,n)])
+        print(f"    preview: {preview}{' ...' if n>8 else ''}")
+
 def main():
-    ap = argparse.ArgumentParser(description="Dump .dat with structured parts: headers vs subcarriers")
+    ap = argparse.ArgumentParser(description="Dump .dat with structured parts per user's layout")
     ap.add_argument("dat", help="Path to .dat file")
     ap.add_argument("--record", type=int, default=0, help="Record index to dump (0-based)")
     args = ap.parse_args()
@@ -156,13 +163,18 @@ def main():
         if rec_idx != args.record:
             continue
         print(f"Record {rec_idx}: ver={ver}, recv_time_ns={t_ns}, parts={len(parts)}")
+        aux_info = {}
         for j, blob in enumerate(parts):
-            if j in (1,3,5,7):
+            if j == 0:
+                dump_slice_hdr_part0(blob)
+            elif j in (2,4,6):
+                print(f"  Part{j}: {len(blob)} bytes (not decoded per spec)")
+            elif j in (1,3,5,7):
                 dump_subcarriers(blob, f"Part{j}")
-            elif j in (0,2,4,6):
-                dump_slice_header(blob, f"Part{j}")
             elif j == 8:
-                dump_aux_header(blob, f"Part{j}")
+                aux_info = dump_aux_part8(blob) or {}
+            elif j == 9:
+                dump_wb_part9(blob, aux_info)
             else:
                 print(f"  Part{j}: {len(blob)} bytes (no decoder assigned)")
         break
