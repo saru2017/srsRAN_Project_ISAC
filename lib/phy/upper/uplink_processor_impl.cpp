@@ -612,7 +612,7 @@ void uplink_processor_impl::process_srs(const uplink_pdu_slot_repository::srs_pd
     ul_srs_results result;
     result.context          = pdu.context;
     result.processor_result = srs->estimate(grid->get_reader(), pdu.config);
-//    saru_dump_ul_srs_results_json(result);
+    saru_dump_ul_srs_results_json(result);
     saru_dump_ul_srs_results_zmq(result);  // 追加
 
     l1_ul_tracer << trace_event("process_srs", tp);
