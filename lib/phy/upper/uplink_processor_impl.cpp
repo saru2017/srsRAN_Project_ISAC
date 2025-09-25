@@ -416,7 +416,111 @@ void uplink_processor_impl::process_pucch_f1(const uplink_pdu_slot_repository_im
   }
 }
 
-//start added by saru
+// --- start added by saru: binary ZMQ dump of UL SRS results ---
+#include "saru/zmq_pub.h"  // g_zmq_pub, zmq_send を使うため（未インクルードなら追加）
+
+// 送信ヘッダ（little-endian, packed）
+struct saru_srs_aux_hdr_v1 {
+  uint32_t magic;       // 'AUX1' = 0x31585541
+  uint16_t version;     // 1
+  uint16_t size_bytes;  // sizeof(saru_srs_aux_hdr_v1)
+
+  // context
+  uint32_t sfn;
+  uint16_t slot;
+  uint16_t numerology;
+
+  uint16_t rnti;        // 0xFFFF = unknown
+  uint8_t  normalized_iq_requested; // 0/1
+  uint8_t  positioning_requested;   // 0/1
+
+  // estimator scalars (optionalはNaNでも0でも可)
+  float    epre_dB;
+  float    rsrp_dB;
+  float    noise_variance;
+
+  float    frob_norm;
+  float    frob_norm_sq;
+
+  // WB matrix dims
+  uint16_t n_rx;
+  uint16_t n_tx;
+
+  // LSE meta（受信側の整合チェック用）
+  uint16_t lse_len;   // mean LSE の長さ（参考値、ここでは行列のみを送る）
+  uint16_t comb;
+  uint16_t k0;
+  uint16_t scs_khz;
+
+  uint32_t crc32_hdr; // 0=未使用
+} __attribute__((packed));
+
+static void saru_dump_ul_srs_results_zmq(const ul_srs_results& result)
+{
+  const auto& ctx = result.context;
+  const auto& est = result.processor_result;
+
+  const auto& H   = est.channel_matrix;                    // srs_channel_matrix
+  const uint16_t nrx = static_cast<uint16_t>(H.get_nof_rx_ports());
+  const uint16_t ntx = static_cast<uint16_t>(H.get_nof_tx_ports());
+
+  // ヘッダを組み立て
+  saru_srs_aux_hdr_v1 hdr{};
+  hdr.magic       = 0x31585541u; // 'AUX1'
+  hdr.version     = 1;
+  hdr.size_bytes  = sizeof(hdr);
+
+  hdr.sfn         = ctx.slot.sfn();
+  hdr.slot        = static_cast<uint16_t>(ctx.slot.slot_index());
+  hdr.numerology  = static_cast<uint16_t>(ctx.slot.numerology());   // 参照元: ctx/slot は既存JSONと同じ文脈で取得可 
+
+  hdr.rnti        = static_cast<uint16_t>(ctx.rnti);                // 既存JSONと同じ出典 
+  hdr.normalized_iq_requested = ctx.is_normalized_channel_iq_matrix_report_requested ? 1 : 0;
+  hdr.positioning_requested   = ctx.is_positioning_report_requested ? 1 : 0;
+
+  hdr.epre_dB        = est.epre_dB.value_or(0.f);
+  hdr.rsrp_dB        = est.rsrp_dB.value_or(0.f);
+  hdr.noise_variance = est.noise_variance.value_or(0.f);
+
+  const float frob   = H.frobenius_norm();                           // 既存JSONで利用済み 
+  hdr.frob_norm      = frob;
+  hdr.frob_norm_sq   = frob * frob;
+
+  hdr.n_rx = nrx;
+  hdr.n_tx = ntx;
+
+  // LSEのメタ（estimate側に存在する値：comb/k0/scs など）
+  // ここでは値が直接ここに無いので 0 で占位しておく。必要なら process_srs へ引数拡張で渡す。
+  hdr.lse_len  = 0;
+  hdr.comb     = 0;
+  hdr.k0       = 0;
+  hdr.scs_khz  = 0;
+
+  hdr.crc32_hdr = 0;
+
+  // Frame1: ヘッダ（SNDMORE）
+  int rc = zmq_send(g_zmq_pub, &hdr, sizeof(hdr), ZMQ_SNDMORE);
+  if (rc < 0) {
+    printf("saru: zmq_send(srs_aux_hdr_v1) failed: %s\n", strerror(errno));
+    return;
+  }
+
+  // Frame2: WB行列（rx-major then tx の順で complex<float> をフラット化）
+  std::vector<std::complex<float>> wb;
+  wb.reserve(static_cast<size_t>(nrx) * static_cast<size_t>(ntx));
+  for (unsigned rx = 0; rx < nrx; ++rx) {
+    for (unsigned tx = 0; tx < ntx; ++tx) {
+      wb.emplace_back(H.get_coefficient(rx, tx));
+    }
+  }
+
+  // 最終フレームとして送る（最後の引数=0 を明記）
+  rc = zmq_send(g_zmq_pub, wb.data(), wb.size() * sizeof(std::complex<float>), 0);
+  if (rc < 0) {
+    printf("saru: zmq_send(wb_matrix) failed: %s\n", strerror(errno));
+  }
+}
+
 static void saru_dump_ul_srs_results_json(const ul_srs_results& result)
 {
     return;
@@ -508,7 +612,8 @@ void uplink_processor_impl::process_srs(const uplink_pdu_slot_repository::srs_pd
     ul_srs_results result;
     result.context          = pdu.context;
     result.processor_result = srs->estimate(grid->get_reader(), pdu.config);
-    saru_dump_ul_srs_results_json(result);
+//    saru_dump_ul_srs_results_json(result);
+    saru_dump_ul_srs_results_zmq(result);  // 追加
 
     l1_ul_tracer << trace_event("process_srs", tp);
 

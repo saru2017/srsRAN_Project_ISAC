@@ -191,7 +191,7 @@ srs_estimator_result srs_estimator_generic_impl::estimate(const resource_grid_re
       if (nof_symbols > 1) {
         srsvec::sc_prod(mean_lse, mean_lse, 1.0 / static_cast<float>(nof_symbols));
       }
-
+      
 //start added by saru
 {
   struct sc_hdr {
@@ -228,7 +228,7 @@ srs_estimator_result srs_estimator_generic_impl::estimate(const resource_grid_re
 
   // ペイロード送信（サブキャリア系列：complex<float> × len）
   rc = zmq_send(g_zmq_pub, mean_lse.data(),
-                mean_lse.size() * sizeof(cf_t), 0);
+                mean_lse.size() * sizeof(cf_t), ZMQ_SNDMORE);
   if (rc < 0) {
       printf("saru: zmq_send(payload) failed: %s\n", strerror(errno));
   }
