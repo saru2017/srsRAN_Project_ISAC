@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# zmq_read_dat_dumpall_v02.py — structured dump following user's C++ headers
+# zmq_read_dat_dumpall_v02.py — structured dump following user's C++ headers (with timestamp_ns in AUX)
 import argparse
 import struct
 import numpy as np
@@ -12,17 +12,6 @@ FIXED_HDR_FMT_V1 = "<4sHHIIQ"
 FIXED_HDR_SIZE_V1 = struct.calcsize(FIXED_HDR_FMT_V1)
 
 # ---- Part0: per-slice LSE header (20 bytes) ----
-# struct sc_hdr {
-#   uint32_t sfn;
-#   uint16_t slot;
-#   uint16_t tx_port;
-#   uint16_t rx_port_idx;
-#   uint16_t n_rx;
-#   uint16_t n_tx;
-#   uint16_t k0;
-#   uint16_t step;
-#   uint16_t len;
-# } __attribute__((packed));
 SLICE_HDR_FMT = "<I8H"
 SLICE_HDR_SIZE = struct.calcsize(SLICE_HDR_FMT)
 SLICE_HDR_FIELDS = [
@@ -30,12 +19,13 @@ SLICE_HDR_FIELDS = [
     "n_rx", "n_tx", "k0", "step", "len"
 ]
 
-# ---- Part8: AUX header v1 (56 bytes) ----
-# struct saru_srs_aux_hdr_v1 { ... } per user spec
-AUX_HDR_FMT = "<I H H I H H H B B f f f f f H H H H H H I"
+# ---- Part8: AUX header v1 (with timestamp_ns, total 64 bytes) ----
+# struct saru_srs_aux_hdr_v1 { ... + uint64_t timestamp_ns; ... }
+AUX_HDR_FMT = "<I H H Q I H H H B B f f f f f H H H H H H I"
 AUX_HDR_SIZE = struct.calcsize(AUX_HDR_FMT)
 AUX_HDR_FIELDS = [
     "magic", "version", "size_bytes",
+    "timestamp_ns",
     "sfn", "slot", "numerology",
     "rnti", "normalized_iq_requested", "positioning_requested",
     "epre_dB", "rsrp_dB", "noise_variance",
@@ -116,9 +106,8 @@ def dump_aux_part8(blob: bytes) -> dict:
         return {}
     vals = struct.unpack(AUX_HDR_FMT, blob)
     d = dict(zip(AUX_HDR_FIELDS, vals))
-    # Pretty print
     print(f"  Part8: saru_srs_aux_hdr_v1 ({AUX_HDR_SIZE} bytes)")
-    # magic: show hex and ascii
+    # magic pretty
     magic = d["magic"]
     ascii_try = struct.pack("<I", magic)
     try:
@@ -127,8 +116,6 @@ def dump_aux_part8(blob: bytes) -> dict:
         magic_ascii = repr(ascii_try)
     print(f"    magic = 0x{magic:08X} ('{magic_ascii}')")
     for k in AUX_HDR_FIELDS[1:]:
-        if k == "magic":
-            continue
         print(f"    {k} = {d[k]}")
     return d
 
@@ -149,7 +136,6 @@ def dump_wb_part9(blob: bytes, aux_info: dict) -> None:
             print(f"    rx{rx}: {row}")
     else:
         print(f"  Part9: WB flat {n} coeffs (n_rx={n_rx}, n_tx={n_tx})")
-        # print as single row to avoid huge output
         preview = " ".join(f"{c.real:.6g}+{c.imag:.6g}j" for c in arr[:min(8,n)])
         print(f"    preview: {preview}{' ...' if n>8 else ''}")
 
