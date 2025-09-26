@@ -127,7 +127,7 @@ cell_cfg:
 log:
   filename: /tmp/gnb.log
   #filename: /home/amamaghani/srsRAN_Project/build/apps/gnb/gnb.log
-  all_level: info
+  all_level: warning
 
 pcap:
   mac_enable: false
