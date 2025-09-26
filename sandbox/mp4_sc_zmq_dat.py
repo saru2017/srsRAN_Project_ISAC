@@ -145,8 +145,10 @@ def main():
     # Add small margins
     phase_margin = 0.05 * (global_phase_max - global_phase_min + 1e-9)
     pow_margin = 0.05 * (global_pow_max - global_pow_min + 1e-9)
-    y_phase = (global_phase_min - phase_margin, global_phase_max + phase_margin)
-    y_pow = (global_pow_min - pow_margin, global_pow_max + pow_margin)
+    #y_phase = (global_phase_min - phase_margin, global_phase_max + phase_margin)
+    y_phase = (-20000, 0)  # fixed for phase
+    #y_pow = (global_pow_min - pow_margin, global_pow_max + pow_margin)
+    y_pow = (-80, 0)      # fixed for power
 
     # Prepare figure & artists
     fig, (ax_phase, ax_pow) = plt.subplots(2, 1, figsize=(12, 9), dpi=args.dpi)
